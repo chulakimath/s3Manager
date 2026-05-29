@@ -3,7 +3,7 @@ import type { AppSettings } from '../../shared/types.js';
 
 const defaults: AppSettings = {
   theme: 'system',
-  autoRefreshSeconds: 30,
+  autoRefreshSeconds: 300,
   parallelTransfers: 4
 };
 

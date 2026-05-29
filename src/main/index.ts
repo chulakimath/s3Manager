@@ -1,4 +1,11 @@
 import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron';
+app.disableHardwareAcceleration();
+
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('disable-dev-shm-usage');
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('in-process-gpu');
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Store from 'electron-store';
