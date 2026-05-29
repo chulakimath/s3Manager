@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820">
+  <rect width="1280" height="820" fill="#f8fafc"/>
+  <rect x="0" y="0" width="280" height="820" fill="#0f172a"/>
+  <rect x="280" y="0" width="1000" height="92" fill="#ffffff"/>
+  <rect x="280" y="92" width="1000" height="46" fill="#f1f5f9"/>
+  <rect x="280" y="138" width="1000" height="492" fill="#ffffff"/>
+  <rect x="280" y="630" width="1000" height="190" fill="#f8fafc"/>
+  <text x="28" y="42" font-family="Segoe UI, Arial" font-size="20" fill="#e2e8f0" font-weight="700">S3 Browser</text>
+  <text x="28" y="94" font-family="Segoe UI, Arial" font-size="12" fill="#94a3b8" font-weight="700">CONNECTIONS</text>
+  <rect x="16" y="112" width="248" height="34" rx="6" fill="#075985"/>
+  <text x="46" y="134" font-family="Segoe UI, Arial" font-size="14" fill="#e0f2fe">Production AWS</text>
+  <text x="28" y="190" font-family="Segoe UI, Arial" font-size="12" fill="#94a3b8" font-weight="700">BUCKETS</text>
+  <text x="46" y="226" font-family="Segoe UI, Arial" font-size="14" fill="#cbd5e1">assets-prod</text>
+  <text x="46" y="260" font-family="Segoe UI, Arial" font-size="14" fill="#cbd5e1">logs-prod</text>
+  <rect x="304" y="18" width="92" height="34" rx="5" fill="#0284c7"/>
+  <text x="326" y="40" font-family="Segoe UI, Arial" font-size="13" fill="white">Upload</text>
+  <rect x="408" y="18" width="124" height="34" rx="5" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="432" y="40" font-family="Segoe UI, Arial" font-size="13" fill="#0f172a">New Folder</text>
+  <rect x="940" y="54" width="300" height="30" rx="5" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="958" y="74" font-family="Segoe UI, Arial" font-size="13" fill="#64748b">Search current listing</text>
+  <text x="306" y="122" font-family="Segoe UI, Arial" font-size="13" fill="#334155">12,430 objects</text>
+  <text x="500" y="122" font-family="Segoe UI, Arial" font-size="13" fill="#334155">318 folders</text>
+  <text x="690" y="122" font-family="Segoe UI, Arial" font-size="13" fill="#334155">84.2 GB</text>
+  <text x="330" y="170" font-family="Segoe UI, Arial" font-size="12" fill="#64748b" font-weight="700">NAME</text>
+  <text x="820" y="170" font-family="Segoe UI, Arial" font-size="12" fill="#64748b" font-weight="700">SIZE</text>
+  <text x="950" y="170" font-family="Segoe UI, Arial" font-size="12" fill="#64748b" font-weight="700">MODIFIED</text>
+  <g font-family="Segoe UI, Arial" font-size="14" fill="#0f172a">
+    <text x="330" y="220">images/</text><text x="820" y="220"> </text><text x="950" y="220">2 minutes ago</text>
+    <text x="330" y="266">reports/</text><text x="950" y="266">1 hour ago</text>
+    <text x="330" y="312">inventory.json</text><text x="820" y="312">92 KB</text><text x="950" y="312">today</text>
+    <text x="330" y="358">statement.pdf</text><text x="820" y="358">1.4 MB</text><text x="950" y="358">yesterday</text>
+  </g>
+  <text x="306" y="662" font-family="Segoe UI, Arial" font-size="14" fill="#0f172a" font-weight="700">Transfers</text>
+  <rect x="306" y="688" width="900" height="8" rx="4" fill="#cbd5e1"/>
+  <rect x="306" y="688" width="540" height="8" rx="4" fill="#0284c7"/>
+  <text x="306" y="722" font-family="Segoe UI, Arial" font-size="13" fill="#334155">large-backup.zip uploading 60%</text>
+</svg>

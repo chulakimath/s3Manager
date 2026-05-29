@@ -1,0 +1,96 @@
+{
+  "name": "s3-desktop-browser",
+  "version": "1.0.0",
+  "description": "Production-ready desktop S3 browser for AWS S3-compatible object storage.",
+  "type": "module",
+  "main": "dist/main/main/index.js",
+  "author": "Codex",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
+    "dev:renderer": "vite --host 127.0.0.1",
+    "dev:main": "wait-on tcp:5173 && tsc -p tsconfig.main.json --watch --preserveWatchOutput",
+    "dev:electron": "wait-on dist/main/main/index.js tcp:5173 && electron .",
+    "build": "npm run lint && npm run typecheck && vite build && tsc -p tsconfig.main.json",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder --win nsis portable",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.583.0",
+    "@aws-sdk/lib-storage": "^3.583.0",
+    "@aws-sdk/s3-request-presigner": "^3.583.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "electron-store": "^8.2.0",
+    "express": "^4.19.2",
+    "lucide-react": "^0.468.0",
+    "mime": "^4.0.4",
+    "p-limit": "^5.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "uuid": "^9.0.1",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.2",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.11.0",
+    "@typescript-eslint/parser": "^7.11.0",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.9",
+    "electron-builder": "^24.13.3",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "postcss": "^8.4.38",
+    "prettier": "^3.2.5",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.12",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.codex.s3browser",
+    "productName": "S3 Desktop Browser",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "resources"
+      }
+    ],
+    "win": {
+      "icon": "resources/app.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}-${arch}.${ext}",
+      "installerIcon": "resources/app.ico",
+      "uninstallerIcon": "resources/app.ico",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}-${arch}.${ext}"
+    }
+  }
+}
