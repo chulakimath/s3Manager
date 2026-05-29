@@ -3,9 +3,15 @@ import { File, FileJson, FileText, Folder, Image, MoreVertical } from 'lucide-re
 import type { ObjectEntry } from '../../shared/types';
 import { useAppStore } from '../stores/app-store';
 import { formatBytes, formatDate } from '../utils/format';
+import { unwrap } from '../utils/ipc';
 import { ConfirmDialog } from './ConfirmDialog';
 
 type SortKey = 'name' | 'size' | 'lastModified' | 'storageClass';
+
+interface PropertiesState {
+  entry: ObjectEntry;
+  metadata: Record<string, string>;
+}
 
 const iconFor = (entry: ObjectEntry): JSX.Element => {
   if (entry.isFolder) {
@@ -29,6 +35,7 @@ export const FileTable = (): JSX.Element => {
   const [ascending, setAscending] = useState(true);
   const [menu, setMenu] = useState<{ x: number; y: number; key: string }>();
   const [confirmDownloadOpen, setConfirmDownloadOpen] = useState(false);
+  const [properties, setProperties] = useState<PropertiesState>();
 
   const rows = useMemo(() => {
     const filtered = [...store.folders, ...store.objects].filter((item) => item.name.toLowerCase().includes(store.search.toLowerCase()));
@@ -71,6 +78,31 @@ export const FileTable = (): JSX.Element => {
   const confirmFolderDownload = async (): Promise<void> => {
     setConfirmDownloadOpen(false);
     await store.downloadSelected({ confirmFolders: true });
+  };
+
+  const showProperties = async (key: string): Promise<void> => {
+    setMenu(undefined);
+    const entry = rows.find((item) => item.key === key);
+    if (!entry || !store.selectedProfileId || !store.bucket) {
+      return;
+    }
+    if (entry.isFolder) {
+      setProperties({
+        entry,
+        metadata: {
+          bucket: store.bucket,
+          key: entry.key,
+          type: 'Folder prefix'
+        }
+      });
+      return;
+    }
+    try {
+      const metadata = await unwrap(window.s3Browser.s3.metadata(store.selectedProfileId, store.bucket, entry.key));
+      setProperties({ entry, metadata: { bucket: store.bucket, key: entry.key, ...metadata } });
+    } catch (error) {
+      store.toast('error', error instanceof Error ? error.message : String(error));
+    }
   };
 
   if (!store.bucket) {
@@ -134,6 +166,7 @@ export const FileTable = (): JSX.Element => {
         <div className="fixed z-40 w-48 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900" style={{ left: menu.x, top: menu.y }}>
           <button className="menu-item" onClick={() => void store.previewObject(menu.key)}>Preview</button>
           <button className="menu-item" onClick={() => void requestDownload()}>Download</button>
+          <button className="menu-item" onClick={() => void showProperties(menu.key)}>Properties</button>
           <button className="menu-item" onClick={() => void store.copyUrlSelected()}>Copy Object URL</button>
           <button className="menu-item" onClick={() => void store.presignSelected()}>Copy Pre-signed URL</button>
           <button className="menu-item text-red-600" onClick={() => void store.deleteSelected()}>Delete</button>
@@ -149,6 +182,54 @@ export const FileTable = (): JSX.Element => {
           onConfirm={() => void confirmFolderDownload()}
         />
       )}
+      {properties && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
+          <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">Properties</div>
+                <div className="truncate text-xs text-slate-500">{properties.entry.key}</div>
+              </div>
+              <button className="icon-button" onClick={() => setProperties(undefined)} title="Close properties">
+                x
+              </button>
+            </div>
+            <div className="min-h-0 overflow-auto p-5">
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
+                <Property label="Name" value={properties.entry.name} />
+                <Property label="Type" value={properties.entry.isFolder ? 'Folder' : properties.entry.contentType ?? 'Object'} />
+                <Property label="Bucket" value={properties.metadata.bucket} />
+                <Property label="Size" value={properties.entry.isFolder ? '' : formatBytes(properties.entry.size)} />
+                <Property label="Last modified" value={properties.entry.lastModified ? new Date(properties.entry.lastModified).toLocaleString() : ''} />
+                <Property label="Storage class" value={properties.entry.storageClass ?? properties.metadata.storageClass ?? ''} />
+                <Property label="Content type" value={properties.metadata.contentType ?? properties.entry.contentType ?? ''} />
+                <Property label="ETag" value={properties.entry.etag ?? properties.metadata.etag ?? ''} />
+              </div>
+              <div className="mt-5">
+                <div className="mb-2 text-xs font-semibold uppercase text-slate-500">S3 Metadata</div>
+                <div className="overflow-hidden rounded border border-slate-200 dark:border-slate-700">
+                  {Object.entries(properties.metadata).map(([key, value]) => (
+                    <div key={key} className="grid grid-cols-[150px_1fr] border-b border-slate-100 text-xs last:border-b-0 dark:border-slate-800">
+                      <div className="bg-slate-50 px-3 py-2 font-medium text-slate-600 dark:bg-slate-950 dark:text-slate-300">{key}</div>
+                      <div className="min-w-0 break-all px-3 py-2 text-slate-700 dark:text-slate-200">{value || '-'}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end border-t border-slate-200 px-5 py-4 dark:border-slate-700">
+              <button className="button-secondary" onClick={() => setProperties(undefined)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+const Property = ({ label, value }: { label: string; value: string }): JSX.Element => (
+  <div className="min-w-0 rounded border border-slate-200 p-3 dark:border-slate-700">
+    <div className="text-xs font-semibold uppercase text-slate-500">{label}</div>
+    <div className="mt-1 min-h-5 break-all text-sm">{value || '-'}</div>
+  </div>
+);

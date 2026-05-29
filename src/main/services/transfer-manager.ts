@@ -18,6 +18,7 @@ interface TransferTask {
 export class TransferManager {
   private readonly items = new Map<string, TransferItem>();
   private readonly tasks = new Map<string, TransferTask>();
+  private readonly lastProgressBroadcast = new Map<string, number>();
   private limit = pLimit(4);
 
   public constructor(
@@ -124,6 +125,7 @@ export class TransferManager {
       this.tasks.set(task.item.id, task);
       void this.limit(async () => {
         if (task.controller.signal.aborted) {
+          this.tasks.delete(task.item.id);
           return;
         }
         this.patch(task.item.id, { status: 'running', startedAt: new Date().toISOString() });
@@ -136,6 +138,9 @@ export class TransferManager {
           } else {
             this.patch(task.item.id, { status: 'failed', completedAt: new Date().toISOString(), error: error instanceof Error ? error.message : String(error) });
           }
+        } finally {
+          this.tasks.delete(task.item.id);
+          this.lastProgressBroadcast.delete(task.item.id);
         }
       });
     }
@@ -148,7 +153,28 @@ export class TransferManager {
     }
     const next = { ...current, ...patch };
     this.items.set(id, next);
+    if (this.shouldThrottleProgress(id, patch, next)) {
+      return;
+    }
     this.getWindow()?.webContents.send('transfer:update', next);
+  }
+
+  private shouldThrottleProgress(id: string, patch: Partial<TransferItem>, next: TransferItem): boolean {
+    const isProgressOnly =
+      (patch.bytesTransferred !== undefined || patch.bytesTotal !== undefined) &&
+      patch.status === undefined &&
+      patch.error === undefined &&
+      patch.completedAt === undefined;
+    if (!isProgressOnly || next.status !== 'running') {
+      return false;
+    }
+    const now = Date.now();
+    const last = this.lastProgressBroadcast.get(id) ?? 0;
+    if (now - last < 200 && next.bytesTransferred < next.bytesTotal) {
+      return true;
+    }
+    this.lastProgressBroadcast.set(id, now);
+    return false;
   }
 
   private async expandLocalFiles(paths: string[]): Promise<Array<{ absolute: string; relative: string; size: number }>> {

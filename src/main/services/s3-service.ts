@@ -14,7 +14,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
@@ -280,8 +280,8 @@ export class S3Service {
   ): Promise<string> {
     const client = this.createClient(profile);
     const safeKey = sanitizeObjectKey(key);
-    const metadata = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: safeKey }));
-    const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: safeKey }));
+    const metadata = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: safeKey }), { abortSignal: signal });
+    const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: safeKey }), { abortSignal: signal });
     if (!response.Body || !(response.Body instanceof Readable)) {
       throw new AppError('Download response did not provide a Node stream.', 'STREAM_UNAVAILABLE');
     }
@@ -295,8 +295,24 @@ export class S3Service {
         callback(null, chunk);
       }
     });
-    signal.addEventListener('abort', () => body.destroy(new AppError('Download aborted.', 'ABORTED')));
-    await pipeline(body, progress, createWriteStream(target));
+    const output = createWriteStream(target);
+    signal.addEventListener(
+      'abort',
+      () => {
+        body.destroy(new AppError('Download aborted.', 'ABORTED'));
+        output.destroy(new AppError('Download aborted.', 'ABORTED'));
+      },
+      { once: true }
+    );
+    try {
+      await pipeline(body, progress, output, { signal });
+    } catch (error) {
+      if (signal.aborted) {
+        await unlink(target).catch(() => undefined);
+        throw new AppError('Download aborted.', 'ABORTED');
+      }
+      throw error;
+    }
     await onProgress({ transferred: metadata.ContentLength ?? transferred, total: metadata.ContentLength ?? transferred });
     return target;
   }
