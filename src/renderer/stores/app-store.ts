@@ -124,10 +124,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         buckets = [{ name: profile.bucket }];
         get().toast('info', 'This connection cannot list all buckets, so the saved bucket was opened directly.');
       }
-      const savedBucket = profile?.bucket;
-      set({ buckets, bucket: savedBucket && buckets.some((b) => b.name === savedBucket) ? savedBucket : undefined });
-      if (savedBucket) {
-        await get().selectBucket(savedBucket);
+      const defaultBucket = profile?.bucket && buckets.some((item) => item.name === profile.bucket) ? profile.bucket : undefined;
+      set({ buckets, bucket: defaultBucket });
+      if (defaultBucket) {
+        try {
+          await get().selectBucket(defaultBucket);
+        } catch (error) {
+          set({ bucket: undefined, objects: [], folders: [], stats: undefined });
+          get().toast('error', `Could not open bucket "${defaultBucket}": ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
     } finally {
       set({ loading: false });

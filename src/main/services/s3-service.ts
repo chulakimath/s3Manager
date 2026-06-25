@@ -10,11 +10,13 @@ import {
   PutObjectCommand,
   S3Client,
   UploadPartCommand,
+  AbortMultipartUploadCommand,
   type CompletedPart
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { stat, unlink } from 'node:fs/promises';
+import { open, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Readable, Transform } from 'node:stream';
@@ -37,7 +39,7 @@ export interface TransferProgress {
   total: number;
 }
 
-const multipartThreshold = 32 * 1024 * 1024;
+const multipartThreshold = 1024 * 1024;
 const partSize = 8 * 1024 * 1024;
 
 export class S3Service {
@@ -46,6 +48,12 @@ export class S3Service {
       region: profile.region,
       endpoint: profile.endpoint,
       forcePathStyle: profile.forcePathStyle,
+      requestHandler: new NodeHttpHandler({
+        connectionTimeout: 15_000,
+        socketTimeout: 600_000
+      }),
+      // Upload retries are handled below with a newly opened file stream.
+      maxAttempts: 1,
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',
       credentials: {
@@ -264,7 +272,8 @@ export class S3Service {
           Body: stream,
           ContentType: mime.getType(localPath) ?? undefined,
           ContentLength: fileStat.size
-        })
+        }),
+        { abortSignal: signal }
       );
     });
     await onProgress({ transferred: fileStat.size, total: fileStat.size });
@@ -327,43 +336,64 @@ export class S3Service {
     onProgress: (progress: TransferProgress) => Promise<void>
   ): Promise<void> {
     const client = this.createClient(profile);
-    const created = await client.send(new CreateMultipartUploadCommand({ Bucket: bucket, Key: key, ContentType: mime.getType(localPath) ?? undefined }));
+    const created = await client.send(
+      new CreateMultipartUploadCommand({ Bucket: bucket, Key: key, ContentType: mime.getType(localPath) ?? undefined }),
+      { abortSignal: signal }
+    );
     if (!created.UploadId) {
       throw new AppError('S3 did not return a multipart upload id.', 'MULTIPART_FAILED');
     }
+    const uploadId = created.UploadId;
     const parts: CompletedPart[] = [];
     let transferred = 0;
     const totalParts = Math.ceil(size / partSize);
-    for (let partNumber = 1; partNumber <= totalParts; partNumber += 1) {
-      if (signal.aborted) {
-        throw new AppError('Upload aborted.', 'ABORTED');
+    const handle = await open(localPath, 'r');
+    try {
+      for (let partNumber = 1; partNumber <= totalParts; partNumber += 1) {
+        if (signal.aborted) {
+          throw new AppError('Upload aborted.', 'ABORTED');
+        }
+        const start = (partNumber - 1) * partSize;
+        const length = Math.min(partSize, size - start);
+        const partBody = Buffer.allocUnsafe(length);
+        await handle.read(partBody, 0, length, start);
+        const response = await this.retry(async () => {
+          if (signal.aborted) {
+            throw new AppError('Upload aborted.', 'ABORTED');
+          }
+          return await client.send(
+            new UploadPartCommand({
+              Bucket: bucket,
+              Key: key,
+              UploadId: uploadId,
+              PartNumber: partNumber,
+              Body: partBody,
+              ContentLength: length
+            }),
+            { abortSignal: signal }
+          );
+        });
+        parts.push({ PartNumber: partNumber, ETag: response.ETag });
+        transferred += length;
+        await onProgress({ transferred, total: size });
       }
-      const start = (partNumber - 1) * partSize;
-      const end = Math.min(start + partSize, size) - 1;
-      const response = await this.retry(async () =>
-        await client.send(
-          new UploadPartCommand({
-            Bucket: bucket,
-            Key: key,
-            UploadId: created.UploadId,
-            PartNumber: partNumber,
-            Body: createReadStream(localPath, { start, end }),
-            ContentLength: end - start + 1
-          })
-        )
+      await client.send(
+        new CompleteMultipartUploadCommand({
+          Bucket: bucket,
+          Key: key,
+          UploadId: uploadId,
+          MultipartUpload: { Parts: parts }
+        }),
+        { abortSignal: signal }
       );
-      parts.push({ PartNumber: partNumber, ETag: response.ETag });
-      transferred += end - start + 1;
-      await onProgress({ transferred, total: size });
+    } catch (error) {
+      await client
+        .send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: uploadId }))
+        .catch(() => undefined);
+      throw error;
+    } finally {
+      await handle.close();
     }
-    await client.send(
-      new CompleteMultipartUploadCommand({
-        Bucket: bucket,
-        Key: key,
-        UploadId: created.UploadId,
-        MultipartUpload: { Parts: parts }
-      })
-    );
   }
 
   private async deletePrefix(client: S3Client, bucket: string, prefix: string): Promise<void> {

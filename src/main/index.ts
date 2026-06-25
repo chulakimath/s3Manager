@@ -21,6 +21,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
 const windowStore = new Store<{ bounds?: Electron.Rectangle }>({ name: 'window-state' });
 
+// Virtualized Windows environments can crash while creating Chromium GPU contexts.
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch('disable-gpu');
+
 let mainWindow: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let apiServer: ApiServer | undefined;
@@ -57,7 +61,6 @@ const createWindow = async (): Promise<BrowserWindow> => {
   });
   if (isDev) {
     await window.loadURL('http://127.0.0.1:5173');
-    window.webContents.openDevTools({ mode: 'detach' });
   } else {
     await window.loadFile(path.join(__dirname, '..', '..', 'renderer', 'index.html'));
   }

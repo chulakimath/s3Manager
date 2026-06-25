@@ -33,13 +33,16 @@ The command starts Vite, compiles the Electron main/preload TypeScript, and laun
 npm run build
 ```
 
-## Windows Packaging
+## Desktop Packaging
 
 ```bash
-npm run dist
+npm run dist:win
+npm run dist:linux
+npm run dist:mac
+npm run dist:all
 ```
 
-Windows packaging uses `electron-builder` and produces NSIS and portable executables in `release/`.
+`npm run dist` remains an alias for the Windows build. Windows packaging produces NSIS and portable executables. Linux packaging produces AppImage, DEB, RPM, and tar.gz artifacts. macOS packaging produces DMG and ZIP artifacts and should be run on macOS for final distributable builds, signing, and notarization. All artifacts are written to `release/`.
 
 ## AWS S3 Setup
 

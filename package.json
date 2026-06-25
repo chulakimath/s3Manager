@@ -13,15 +13,20 @@
     "dev:electron": "wait-on dist/main/main/index.js tcp:5173 && electron .",
     "build": "npm run lint && npm run typecheck && vite build && tsc -p tsconfig.main.json",
     "start": "electron .",
-    "dist": "npm run build && electron-builder --win nsis portable",
+    "dist": "npm run dist:win",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "dist:win": "npm run build && electron-builder --win nsis portable",
+    "dist:linux": "npm run build && electron-builder --linux AppImage deb rpm tar.gz",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip",
+    "dist:all": "npm run build && electron-builder --win nsis portable --linux AppImage deb rpm tar.gz --mac dmg zip"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.583.0",
     "@aws-sdk/lib-storage": "^3.583.0",
     "@aws-sdk/s3-request-presigner": "^3.583.0",
+    "@smithy/node-http-handler": "^4.7.5",
     "@vitejs/plugin-react": "^4.2.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -91,6 +96,64 @@
     },
     "portable": {
       "artifactName": "${productName}-Portable-${version}-${arch}.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "icon": "resources/app.png",
+      "category": "Utility",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "synopsis": "Desktop S3 browser for S3-compatible object storage",
+      "description": "A desktop S3 browser for AWS S3, Cloudflare R2, MinIO, Wasabi, and DigitalOcean Spaces.",
+      "maintainer": "Codex"
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "deb": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "rpm": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     }
   }
 }
